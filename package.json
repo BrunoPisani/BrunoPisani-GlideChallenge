@@ -1,0 +1,19 @@
+{
+  "name": "big-corp-api",
+  "version": "0.0.1",
+  "description": "Glide's Job Interview Challenge \"Big Corp API\".",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BrunoPisani/BrunoPisani-GlideChallenge.git"
+  },
+  "author": "Bruno Pisani",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BrunoPisani/BrunoPisani-GlideChallenge/issues"
+  },
+  "homepage": "https://github.com/BrunoPisani/BrunoPisani-GlideChallenge#readme"
+}
