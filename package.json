@@ -4,6 +4,7 @@
   "description": "Glide's Job Interview Challenge \"Big Corp API\".",
   "main": "index.js",
   "scripts": {
+    "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -15,5 +16,13 @@
   "bugs": {
     "url": "https://github.com/BrunoPisani/BrunoPisani-GlideChallenge/issues"
   },
-  "homepage": "https://github.com/BrunoPisani/BrunoPisani-GlideChallenge#readme"
+  "homepage": "https://github.com/BrunoPisani/BrunoPisani-GlideChallenge#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.20.1"
+  }
 }
