@@ -1,11 +1,11 @@
-const employeesRoutes = require('express').Router();
+const resourcesRoutes = require('express').Router();
 const axios = require('axios');
 const config = require('../../utils/config.js');
 const tools = require('../../utils/tools');
 
-const resource = 'EMPLOYEES';
+resourcesRoutes.get('/:resource', async (req, res) => {
+  const resource = req.params.resource.toLocaleUpperCase();
 
-employeesRoutes.get('/', async (req, res) => {
   // Validation of querystring parameters:
   if (req.query.offset !== undefined && Array.isArray(req.query.offset)) {
     return res.status(400).send('Error: there can be only one offset value in the query string.');
@@ -24,7 +24,7 @@ employeesRoutes.get('/', async (req, res) => {
   const expandArray = (typeof req.query.expand !== 'undefined') ? (Array.isArray(req.query.expand) ? req.query.expand : [req.query.expand]) : [];
   expandArray.sort(tools.sortAscendant);
   for (let i = 0; i < expandArray.length; i++) {
-    if (config[resource].expand_regex && !config[resource].expand_regex.test(expandArray[i])) {
+    if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === "")) {
       return res.status(400).send('Error: malformed expand value in querystring.');
     }
     for (let j = i + 1; j < expandArray.length; j++) {
@@ -47,19 +47,39 @@ employeesRoutes.get('/', async (req, res) => {
   }
 });
 
-/*
-employeesRoutes.get('/:id', (req, res) => {
+
+resourcesRoutes.get('/:resource/:id', async (req, res) => {
+  const resource = req.params.resource.toLocaleUpperCase();
   const { id } = req.params;
 
-  const employee = employees.find((_employee) => {
-    if (_employee.id.toString() === id) {
-      return true;
+  const expandArray = (typeof req.query.expand !== 'undefined') ? (Array.isArray(req.query.expand) ? req.query.expand : [req.query.expand]) : [];
+  expandArray.sort(tools.sortAscendant);
+  for (let i = 0; i < expandArray.length; i++) {
+    if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === "")) {
+      return res.status(400).send('Error: malformed expand value in querystring.');
     }
-    return false;
-  });
+    for (let j = i + 1; j < expandArray.length; j++) {
+      if (parseInt(expandArray[i].indexOf(expandArray[j]), 10) === 0
+      || parseInt(expandArray[j].indexOf(expandArray[i]), 10) === 0) {
+        return res.status(400).send('Error: incompatible expand values in querystring.');
+      }
+    }
+  }
 
-  return res.status(200).json(employee);
+  const expandMatrix = expandArray.map((expandString) => expandString.split('.'));
+
+  try {
+    const rootData = (config[resource].data) ? [tools.searchById(id, config[resource].data)] : (await axios.get(`${config[resource].url}?id=${id}`)).data;
+    const data = await tools.nestData([...rootData], [...expandMatrix]);
+
+    return res.status(200).json(data);
+  } catch (e) {
+    return res.status(400).send(e);
+  }
 });
-*/
 
-module.exports = employeesRoutes;
+resourcesRoutes.get('/', (req, res) => {
+    res.status(200).json({ message: 'Welcome to Big Corp API!' });
+});
+
+module.exports = resourcesRoutes;

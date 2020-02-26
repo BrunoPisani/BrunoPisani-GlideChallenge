@@ -21,7 +21,7 @@ const config = {
   },
   OFFICES: {
     data: offices,
-    expand_regex: undefined,
+    expand_regex: /^$/,
     url: undefined,
     primaryKey: 'id'
   },

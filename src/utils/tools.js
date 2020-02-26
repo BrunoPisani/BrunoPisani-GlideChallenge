@@ -8,6 +8,17 @@ module.exports.sortAscendant = (a, b) => {
   return 1;
 };
 
+module.exports.searchById = (foreignKey, rightData) => {
+  let value = null;
+  for(let i = 0; i < rightData.length; i++) {
+    if(rightData[i].id === foreignKey){
+      value = rightData[i];
+      break;
+    }
+  }
+  return value;
+};
+
 module.exports.nestData = async (rootData, expandMatrix) => {
   console.log('nestData()');
   console.log('rootData: ', rootData);
@@ -120,23 +131,11 @@ const leftJoin = (leftData, rightData, keyword) => {
   for(let i = 0; i < leftData.length; i++) {
     const foreignId = leftData[i][keyword];
     if(foreignId !== null) {
-      //searchById(foreignId, rightData);
-      leftData[i][keyword] = searchById(foreignId, rightData);
+      leftData[i][keyword] = this.searchById(foreignId, rightData);
     }
   }
   return leftData;
 };
-
-const searchById = (foreignKey, rightData) => {
-  let value = null;
-  for(let i = 0; i < rightData.length; i++) {
-    if(rightData[i].id === foreignKey){
-      value = rightData[i];
-      break;
-    }
-  }
-  return value;
-}
 
 const mayBranchNeed3rdPartyApiQuery = (branch) => {
   let result = false;

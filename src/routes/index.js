@@ -1,14 +1,7 @@
 const apiRoutes = require('express').Router();
 
-const departments = require('./departments');
-const employees = require('./employees');
-const offices = require('./offices');
+const resources = require('./resources')
 
-apiRoutes.use('/departments', departments);
-apiRoutes.use('/employees', employees);
-apiRoutes.use('/offices', offices);
-apiRoutes.get('/', (req, res) => {
-  res.status(200).json({ message: 'Welcome to Big Corp API!' });
-});
+apiRoutes.use('/', resources);
 
 module.exports = apiRoutes;
