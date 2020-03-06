@@ -1,9 +1,9 @@
-const resourcesRoutes = require('express').Router();
+const apiRoutes = require('express').Router();
 const axios = require('axios');
 const config = require('../../utils/config.js');
 const tools = require('../../utils/tools');
 
-resourcesRoutes.get('/:resource', async (req, res) => {
+apiRoutes.get('/:resource', async (req, res) => {
   const resource = req.params.resource.toLocaleUpperCase();
 
   // Validation of querystring parameters:
@@ -24,12 +24,12 @@ resourcesRoutes.get('/:resource', async (req, res) => {
   const expandArray = (typeof req.query.expand !== 'undefined') ? (Array.isArray(req.query.expand) ? req.query.expand : [req.query.expand]) : [];
   expandArray.sort(tools.sortAscendant);
   for (let i = 0; i < expandArray.length; i++) {
-    if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === "")) {
+    if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === '')) {
       return res.status(400).send('Error: malformed expand value in querystring.');
     }
     for (let j = i + 1; j < expandArray.length; j++) {
       if (parseInt(expandArray[i].indexOf(expandArray[j]), 10) === 0
-      || parseInt(expandArray[j].indexOf(expandArray[i]), 10) === 0) {
+        || parseInt(expandArray[j].indexOf(expandArray[i]), 10) === 0) {
         return res.status(400).send('Error: incompatible expand values in querystring.');
       }
     }
@@ -37,10 +37,10 @@ resourcesRoutes.get('/:resource', async (req, res) => {
 
   const expandMatrix = expandArray.map((expandString) => expandString.split('.'));
 
-  try {
-    const rootData = (config[resource].data) ? [...config[resource].data].slice(offset, offset + limit) : (await axios.get(`${config[resource].url}?limit=${limit}&offset=${offset}`)).data;
+  try {    
+    const rootData = (config[resource].data) ? (await [...config[resource].data].slice(offset, offset + limit)) : (await axios.get(`${config[resource].url}?limit=${limit}&offset=${offset}`)).data;
     const data = await tools.nestData([...rootData], [...expandMatrix]);
-
+    console.debug('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@');
     return res.status(200).json(data);
   } catch (e) {
     return res.status(400).send(e);
@@ -48,19 +48,19 @@ resourcesRoutes.get('/:resource', async (req, res) => {
 });
 
 
-resourcesRoutes.get('/:resource/:id', async (req, res) => {
+apiRoutes.get('/:resource/:id', async (req, res) => {
   const resource = req.params.resource.toLocaleUpperCase();
   const { id } = req.params;
 
   const expandArray = (typeof req.query.expand !== 'undefined') ? (Array.isArray(req.query.expand) ? req.query.expand : [req.query.expand]) : [];
   expandArray.sort(tools.sortAscendant);
   for (let i = 0; i < expandArray.length; i++) {
-    if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === "")) {
+    if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === '')) {
       return res.status(400).send('Error: malformed expand value in querystring.');
     }
     for (let j = i + 1; j < expandArray.length; j++) {
       if (parseInt(expandArray[i].indexOf(expandArray[j]), 10) === 0
-      || parseInt(expandArray[j].indexOf(expandArray[i]), 10) === 0) {
+        || parseInt(expandArray[j].indexOf(expandArray[i]), 10) === 0) {
         return res.status(400).send('Error: incompatible expand values in querystring.');
       }
     }
@@ -69,7 +69,8 @@ resourcesRoutes.get('/:resource/:id', async (req, res) => {
   const expandMatrix = expandArray.map((expandString) => expandString.split('.'));
 
   try {
-    const rootData = (config[resource].data) ? [tools.searchById(id, config[resource].data)] : (await axios.get(`${config[resource].url}?id=${id}`)).data;
+    const { primaryKey } = config[resource];
+    const rootData = (config[resource].data) ? [tools.searchByKey(id, config[resource].data, primaryKey)] : (await axios.get(`${config[resource].url}?id=${id}`)).data;
     const data = await tools.nestData([...rootData], [...expandMatrix]);
 
     return res.status(200).json(data);
@@ -78,8 +79,8 @@ resourcesRoutes.get('/:resource/:id', async (req, res) => {
   }
 });
 
-resourcesRoutes.get('/', (req, res) => {
-    res.status(200).json({ message: 'Welcome to Big Corp API!' });
+apiRoutes.get('/', (req, res) => {
+  res.status(200).json({ message: 'Welcome to Big Corp API!' });
 });
 
-module.exports = resourcesRoutes;
+module.exports = apiRoutes;

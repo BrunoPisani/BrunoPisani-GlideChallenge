@@ -1,5 +1,5 @@
-const config = require('./config.js');
 const axios = require('axios');
+const config = require('./config.js');
 
 module.exports.sortAscendant = (a, b) => {
   if (a < b) {
@@ -8,77 +8,94 @@ module.exports.sortAscendant = (a, b) => {
   return 1;
 };
 
-module.exports.searchById = (foreignKey, rightData) => {
-  let value = null;
-  for(let i = 0; i < rightData.length; i++) {
-    if(rightData[i].id === foreignKey){
-      value = rightData[i];
+module.exports.searchByKey = (keyValue, dataArray, key = 'id') => {
+  let data = null;
+  for (let i = 0; i < dataArray.length; i++) {
+    if (dataArray[i][key] === keyValue) {
+      data = dataArray[i];
       break;
     }
   }
-  return value;
+  return data;
 };
 
 module.exports.nestData = async (rootData, expandMatrix) => {
-  console.log('nestData()');
-  console.log('rootData: ', rootData);
-  console.log('expandMatrix:', expandMatrix);
+  console.debug('nestData()');
+  console.debug('rootData: ', rootData);
+  console.debug('expandMatrix:', expandMatrix);
+  let expandedData = [...rootData];
 
   if (isMatrixEmpty(expandMatrix)) {
-    console.log('empty => return root data');
-    return rootData;
+    console.debug('empty => return root data');
+    return expandedData;
   }
-  console.log('expandMatrix is not empty.');
-  
+  console.debug('expandMatrix is not empty.');
+
   const expandBranches = groupExpands(expandMatrix);
-  console.log('expandBranches:', expandBranches);
+  console.debug('expandBranches:', expandBranches);
 
   const startNesting = async () => {
     await asyncForEach(expandBranches, async (branch) => {
       const keyword = branch[0][0];
-      console.log('--------------------------------------------');
-      console.log("branch keyword:", keyword);
-      const newExpandMatrix = branch.map(b => {b.shift(); return b;});
-      console.log("newExpandMatrix: ", newExpandMatrix);
-      const primaryKeysArray = [];
+      console.debug('--------------------------------------------');
+      console.debug('branch keyword:', keyword);
+      const newExpandMatrix = branch.map((b) => { b.shift(); return b; });
+      console.debug('newExpandMatrix: ', newExpandMatrix);
+      const foreignKeysArray = [];
 
-      for(let i = 0; i < rootData.length; i++) {
-        let id = rootData[i][keyword];
-        if(id !== null) {
-          if(!primaryKeysArray.includes(id)) {
-            primaryKeysArray.push(id);
+      for (let i = 0; i < rootData.length; i++) {
+        let keyValue = rootData[i][keyword];
+        console.debug("Bruno", keyValue);
+        if (keyValue !== null) {
+          console.log("type: ",typeof keyValue);
+          console.log(typeof keyValue === 'number');
+          console.log('id:', keyValue.id)
+          keyValue = (typeof keyValue === 'number') ? keyValue : keyValue.id; 
+          console.log('kv: ', keyValue);
+          if (!foreignKeysArray.includes(keyValue)) {
+            foreignKeysArray.push(keyValue);
           }
         }
       }
-      primaryKeysArray.sort(this.sortAscendant);
-      console.log('primaryKeysArray: ', primaryKeysArray);
+      foreignKeysArray.sort(this.sortAscendant);
+      console.debug('foreignKeysArray: ', foreignKeysArray);
 
-      let newRootBranchData = await getRootBranchData(keyword, primaryKeysArray);
-      console.log('getRootBranchData() => rootBranchData: ', newRootBranchData);
+      const newRootBranchData = await getNewRootBranchData(keyword, foreignKeysArray);
+      console.debug('getRootBranchData() => rootBranchData: ', newRootBranchData);
 
-      console.log('-------------------------------------------------------------------------------------------------');
-      //console.log('BRANCH: ' + keyword + ': ', this.nestData(newRootBranchData, newExpandMatrix));
-      rootData = leftJoin(rootData, (await this.nestData(newRootBranchData, newExpandMatrix)), keyword);
-      return rootData;
+      console.debug('-----------------------------------------------------------------------------------------------');
+      console.log("previous leftJoin root data: ", rootData);
+      expandedData = leftJoin(
+        [...expandedData], (await this.nestData([...newRootBranchData], [...newExpandMatrix])), keyword
+      );
+      console.log("final root data: ", rootData);
+      return expandedData;
     });
-  }
+  };
   await startNesting();
 
-   // for each branch {
+  // for each branch {
   //   rootData leftjoin nestData(newBranchRootData, newBranchExpandMatrix);
   // }
   // return rootData;
 
-  console.log('END VALUE:', rootData);
-  return rootData;
-  
+  console.debug('END VALUE:', expandedData);
+  return expandedData;
 };
 
+const asyncForEach = async (array, callback) => {
+  for (let index = 0; index < array.length; index++) {
+    await callback(array[index], index, array);
+  }
+};
+
+/*
 async function asyncForEach (array, callback) {
   for (let index = 0; index < array.length; index++) {
     await callback(array[index], index, array);
   }
 };
+*/
 
 const isMatrixEmpty = (rootArray) => {
   if (rootArray.length === 0 || [...rootArray].every((array) => array.length === 0)) {
@@ -103,40 +120,55 @@ const groupExpands = (expandArray) => {
   return expandGroups;
 };
 
-const getRootBranchData = async (keyword, primaryKeys) => {
-  let rootBranchData;
+const getNewRootBranchData = async (keyword, primaryKeys) => {
+  let newRootBranchData;
   if (primaryKeys.length === 0) {
-    rootBranchData = [];
+    newRootBranchData = [];
   }
   if (config[config.SOURCES[keyword]].data) {
-    console.log('data available');
-    rootBranchData = config[config.SOURCES[keyword]].data.filter((element) => primaryKeys.includes(element[config[config.SOURCES[keyword]].primaryKey]));
+    console.debug('data available');
+    newRootBranchData = config[config.SOURCES[keyword]].data.filter(
+      (element) => primaryKeys.includes(element[config[config.SOURCES[keyword]].primaryKey])
+    );
   } else {
-    console.log('query data');
-    let url = config[config.SOURCES[keyword]].url + '?';
+    console.debug('query data');
+    let url = `${config[config.SOURCES[keyword]].url}?`;
     for (let i = 0; i < primaryKeys.length; i++) {
       if (i === 0) {
-        url += 'id=' + primaryKeys[i];
+        url += `id=${primaryKeys[i]}`;
       } else {
-        url += '&id=' + primaryKeys[i] ;
+        url += `&id=${primaryKeys[i]}`;
       }
     }
-    rootBranchData = (await axios.get(`${url}`)).data;
+    newRootBranchData = (await axios.get(`${url}`)).data;
   }
-  return rootBranchData;
-}
-
-const leftJoin = (leftData, rightData, keyword) => {
-  console.log('leftJoin() -> keyword: ', keyword);
-  for(let i = 0; i < leftData.length; i++) {
-    const foreignId = leftData[i][keyword];
-    if(foreignId !== null) {
-      leftData[i][keyword] = this.searchById(foreignId, rightData);
-    }
-  }
-  return leftData;
+  return newRootBranchData;
 };
 
+const leftJoin = (leftData, rightData, keyword) => {
+  console.debug('leftJoin() -> keyword: ', keyword);
+  console.log('leftJoin() -> leftData:', leftData);
+  console.log('leftJoin() -> rightData:', rightData);
+  console.log("BRUNO");
+  let _leftData = [];
+  console.log("BRUNO1");
+  for (let e = 0; e < leftData.length; e++) {
+    console.log(leftData[e]);
+    _leftData.push(Object.assign({}, leftData[e]));
+  }
+  console.log("BRUNO2");
+  for (let i = 0; i < leftData.length; i++) {
+    let foreignKeyValue = leftData[i][keyword];
+    const { primaryKey } = config[config.SOURCES[keyword]];
+    if (foreignKeyValue !== null) {
+      foreignKeyValue = (typeof foreignKeyValue === 'number') ? foreignKeyValue : foreignKeyValue[primaryKey]; 
+      _leftData[i][keyword] = this.searchByKey(foreignKeyValue, rightData, primaryKey);
+    }
+  }
+  return _leftData;
+};
+
+/*
 const mayBranchNeed3rdPartyApiQuery = (branch) => {
   let result = false;
   for (let i = 0; i < branch.length; i++) {
@@ -152,3 +184,4 @@ const mayBranchNeed3rdPartyApiQuery = (branch) => {
   }
   return result;
 };
+*/

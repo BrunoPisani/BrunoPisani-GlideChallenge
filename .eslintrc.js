@@ -23,5 +23,8 @@ module.exports = {
     "no-plusplus": 0,
     "no-use-before-define": 0,
     "no-nested-ternary": 0,
+    "no-console": 0,
+    "no-await-in-loop": 0,
+    "no-param-reassign": 0,
   },
 };
