@@ -1,20 +1,23 @@
 const apiRoutes = require('express').Router();
-const axios = require('axios');
 const config = require('../../utils/config.js');
 const tools = require('../../utils/tools');
 
 apiRoutes.get('/:resource', async (req, res) => {
+  // Resource assignment and validation:
   const resource = req.params.resource.toLocaleUpperCase();
+  if (typeof config[resource] === 'undefined') {
+    return res.status(400).send('Error: unknown resource.');
+  }
 
-  // Validation of querystring parameters:
-  if (req.query.offset !== undefined && Array.isArray(req.query.offset)) {
+  // Querystring parameters assignment and validation:
+  if (typeof req.query.offset !== 'undefined' && Array.isArray(req.query.offset)) {
     return res.status(400).send('Error: there can be only one offset value in the query string.');
   }
   const offset = (typeof req.query.offset !== 'undefined') ? parseInt(req.query.offset, 10) : config.DEFAULT_OFFSET;
   if (Number.isNaN(offset) || offset < 0) {
     return res.status(400).send('Error: offset value must be a positive integer number equal or greater than zero.');
   }
-  if (req.query.limit !== undefined && Array.isArray(req.query.limit)) {
+  if (typeof req.query.limit !== 'undefined' && Array.isArray(req.query.limit)) {
     return res.status(400).send('Error: there can be only one limit value in the query string.');
   }
   const limit = (typeof req.query.limit !== 'undefined') ? parseInt(req.query.limit, 10) : config.DEFAULT_LIMIT;
@@ -35,12 +38,13 @@ apiRoutes.get('/:resource', async (req, res) => {
     }
   }
 
-  const expandMatrix = expandArray.map((expandString) => expandString.split('.'));
+  // Main endpoint logic (obtain data and expand as requested):
+  try {
+    const rootData = await tools.obtainDataSegment(resource, offset, limit);
+    const expandMatrix = expandArray.map((expandString) => expandString.split('.'));
 
-  try {    
-    const rootData = (config[resource].data) ? (await [...config[resource].data].slice(offset, offset + limit)) : (await axios.get(`${config[resource].url}?limit=${limit}&offset=${offset}`)).data;
-    const data = await tools.nestData([...rootData], [...expandMatrix]);
-    console.debug('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@');
+    const data = await tools.nestData(rootData, expandMatrix); // Main recursive function.
+
     return res.status(200).json(data);
   } catch (e) {
     return res.status(400).send(e);
@@ -49,9 +53,15 @@ apiRoutes.get('/:resource', async (req, res) => {
 
 
 apiRoutes.get('/:resource/:id', async (req, res) => {
+  // Resource assignment and validation:
   const resource = req.params.resource.toLocaleUpperCase();
+  if (typeof config[resource] === 'undefined') {
+    return res.status(400).send('Error: unknown resource.');
+  }
+
   const { id } = req.params;
 
+  // Querystring parameters assignment and validation:
   const expandArray = (typeof req.query.expand !== 'undefined') ? (Array.isArray(req.query.expand) ? req.query.expand : [req.query.expand]) : [];
   expandArray.sort(tools.sortAscendant);
   for (let i = 0; i < expandArray.length; i++) {
@@ -66,12 +76,13 @@ apiRoutes.get('/:resource/:id', async (req, res) => {
     }
   }
 
-  const expandMatrix = expandArray.map((expandString) => expandString.split('.'));
-
+  // Main endpoint logic (obtain data and expand as requested):
   try {
     const { primaryKey } = config[resource];
-    const rootData = (config[resource].data) ? [tools.searchByKey(id, config[resource].data, primaryKey)] : (await axios.get(`${config[resource].url}?id=${id}`)).data;
-    const data = await tools.nestData([...rootData], [...expandMatrix]);
+    const rootData = await tools.obtainDataRecord(resource, primaryKey, id);
+    const expandMatrix = expandArray.map((expandString) => expandString.split('.'));
+
+    const data = await tools.nestData(rootData, expandMatrix); // Main recursive function.
 
     return res.status(200).json(data);
   } catch (e) {
