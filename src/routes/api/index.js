@@ -25,7 +25,7 @@ apiRoutes.get('/:resource', async (req, res) => {
     return res.status(400).send(`Error: limit value must be a positive integer number between 0 and ${config.MAX_LIMIT}.`);
   }
   const expandArray = (typeof req.query.expand !== 'undefined') ? (Array.isArray(req.query.expand) ? req.query.expand : [req.query.expand]) : [];
-  expandArray.sort(tools.sortAscendant);
+  expandArray.sort(tools.auxArraySortAscendant);
   for (let i = 0; i < expandArray.length; i++) {
     if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === '')) {
       return res.status(400).send('Error: malformed expand value in querystring.');
@@ -47,7 +47,7 @@ apiRoutes.get('/:resource', async (req, res) => {
 
     return res.status(200).json(data);
   } catch (e) {
-    return res.status(400).send(e);
+    return res.status(500).send(e.message);
   }
 });
 
@@ -63,7 +63,7 @@ apiRoutes.get('/:resource/:id', async (req, res) => {
 
   // Querystring parameters assignment and validation:
   const expandArray = (typeof req.query.expand !== 'undefined') ? (Array.isArray(req.query.expand) ? req.query.expand : [req.query.expand]) : [];
-  expandArray.sort(tools.sortAscendant);
+  expandArray.sort(tools.auxArraySortAscendant);
   for (let i = 0; i < expandArray.length; i++) {
     if (config[resource].expand_regex && (!config[resource].expand_regex.test(expandArray[i]) || expandArray[i] === '')) {
       return res.status(400).send('Error: malformed expand value in querystring.');
@@ -86,7 +86,7 @@ apiRoutes.get('/:resource/:id', async (req, res) => {
 
     return res.status(200).json(data);
   } catch (e) {
-    return res.status(400).send(e);
+    return res.status(500).send(e.message);
   }
 });
 

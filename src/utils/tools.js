@@ -1,38 +1,17 @@
 const axios = require('axios');
 const config = require('./config.js');
 
-module.exports.obtainDataSegment = async (resource, offset, limit) => {
-  // Case when we have the resource data stored in a .json file:
-  if (config[resource].data) {
-    return config[resource].data.slice(offset, offset + limit);
+module.exports.auxArraySortAscendant = (a, b) => {
+  if (a < b) {
+    return -1;
   }
-  // Case when we have to query the resource data to a third party API:
-  if (config[resource].url) {
-    return (await axios.get(`${config[resource].url}?limit=${limit}&offset=${offset}`)).data;
-  }
-  // Here we could add more cases if necessary, like obtaining the resource data from a database.
-
-  return [];
-};
-
-module.exports.obtainDataRecord = async (resource, keyName, keyValue) => {
-  // Case when we have the resource data stored in a .json file:
-  if (config[resource].data) {
-    return [this.searchByKey(keyValue, config[resource].data, keyName)];
-  }
-  // Case when we have to query the resource data to a third party API:
-  if (config[resource].url) {
-    return (await axios.get(`${config[resource].url}?${keyName}=${keyValue}`)).data;
-  }
-  // Here we could add more cases if necessary, like obtaining the resource data from a database.
-
-  return [];
+  return 1;
 };
 
 module.exports.nestData = async (rootData, expandMatrix) => {
   let expandedData = [...rootData];
 
-  if (isMatrixEmpty(expandMatrix)) {
+  if (expandMatrix.length === 0 || isMatrix2DEmpty(expandMatrix)) {
     return expandedData;
   }
 
@@ -66,52 +45,48 @@ module.exports.nestData = async (rootData, expandMatrix) => {
   return expandedData;
 };
 
-module.exports.sortAscendant = (a, b) => {
-  if (a < b) {
-    return -1;
+module.exports.obtainDataRecord = async (resource, keyName, keyValue) => {
+  // Case when we have the resource data stored in a .json file:
+  if (config[resource].data) {
+    return [searchByKey(keyValue, config[resource].data, keyName)];
   }
-  return 1;
-};
-
-module.exports.searchByKey = (keyValue, dataArray, key = 'id') => {
-  let data = null;
-  for (let i = 0; i < dataArray.length; i++) {
-    // eslint-disable-next-line eqeqeq
-    if (dataArray[i][key] == keyValue) { // This double equal sign is on purpose
-      data = dataArray[i];
-      break;
+  // Case when we have to query the resource data to a third party API:
+  if (config[resource].url) {
+    try {
+      return (await axios.get(`${config[resource].url}?${keyName}=${keyValue}`)).data;
+    } catch (e) {
+      console.debug(`Error caught in obtaintDataRecord(): ${e}`);
+      throw new Error('Error: problem connecting to a third party API.');
     }
   }
-  return data;
+  // Here we could add more cases if necessary, like obtaining the resource data from a database.
+
+  return [];
+};
+
+module.exports.obtainDataSegment = async (resource, offset, limit) => {
+  // Case when we have the resource data stored in a .json file:
+  if (config[resource].data) {
+    return config[resource].data.slice(offset, offset + limit);
+  }
+  // Case when we have to query the resource data to a third party API:
+  if (config[resource].url) {
+    try {
+      return (await axios.get(`${config[resource].url}?limit=${limit}&offset=${offset}`)).data;
+    } catch (e) {
+      console.debug(`Error caught in obtaintDataSegment(): ${e}`);
+      throw new Error('Error: problem connecting to a third party API.');
+    }
+  }
+  // Here we could add more cases if necessary, like obtaining the resource data from a database.
+
+  return [];
 };
 
 const asyncForEach = async (array, callback) => {
   for (let index = 0; index < array.length; index++) {
     await callback(array[index], index, array);
   }
-};
-
-const isMatrixEmpty = (rootArray) => {
-  if (rootArray.length === 0 || [...rootArray].every((array) => array.length === 0)) {
-    return true;
-  }
-  return false;
-};
-
-const groupExpands = (expandArray) => {
-  const expandGroups = [];
-  const expandObject = {};
-  for (let i = 0; i < expandArray.length; i++) {
-    const keyword = expandArray[i][0];
-    if (typeof expandObject[keyword] === 'undefined') {
-      expandObject[keyword] = [];
-    }
-    expandObject[keyword].push(expandArray[i]);
-  }
-  Object.keys(expandObject).forEach((key) => {
-    expandGroups.push(expandObject[key]);
-  });
-  return expandGroups;
 };
 
 const getNewRootBranchData = async (keyword, primaryKeys) => {
@@ -132,9 +107,37 @@ const getNewRootBranchData = async (keyword, primaryKeys) => {
         url += `&id=${primaryKeys[i]}`;
       }
     }
-    newRootBranchData = (await axios.get(`${url}`)).data;
+    try {
+      newRootBranchData = (await axios.get(`${url}`)).data;
+    } catch (e) {
+      console.debug(`Error catch in getNewRootBranchData(): ${e}`);
+      throw new Error('Error: problem connecting to a third party API.');
+    }
   }
   return newRootBranchData;
+};
+
+const groupExpands = (expandArray) => {
+  const expandGroups = [];
+  const expandObject = {};
+  for (let i = 0; i < expandArray.length; i++) {
+    const keyword = expandArray[i][0];
+    if (typeof expandObject[keyword] === 'undefined') {
+      expandObject[keyword] = [];
+    }
+    expandObject[keyword].push(expandArray[i]);
+  }
+  Object.keys(expandObject).forEach((key) => {
+    expandGroups.push(expandObject[key]);
+  });
+  return expandGroups;
+};
+
+const isMatrix2DEmpty = (rootArray) => {
+  if ([...rootArray].every((array) => array.length === 0)) {
+    return true;
+  }
+  return false;
 };
 
 const leftJoin = (leftData, rightData, keyword) => {
@@ -146,8 +149,20 @@ const leftJoin = (leftData, rightData, keyword) => {
     const foreignKeyValue = leftData[i][keyword];
     const { primaryKey } = config[config.SOURCES[keyword]];
     if (foreignKeyValue !== null) {
-      leftJoinResult[i][keyword] = this.searchByKey(foreignKeyValue, rightData, primaryKey);
+      leftJoinResult[i][keyword] = searchByKey(foreignKeyValue, rightData, primaryKey);
     }
   }
   return leftJoinResult;
+};
+
+const searchByKey = (keyValue, dataArray, key = 'id') => {
+  let data = null;
+  for (let i = 0; i < dataArray.length; i++) {
+    // eslint-disable-next-line eqeqeq
+    if (dataArray[i][key] == keyValue) { // This double equal sign is on purpose
+      data = dataArray[i];
+      break;
+    }
+  }
+  return data;
 };
